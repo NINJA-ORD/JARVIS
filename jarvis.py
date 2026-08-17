@@ -1,10 +1,13 @@
 import json
 import time
+import queue
+
+import numpy as np
 import sounddevice as sd
 import pyttsx3
 
+from scipy.signal import resample_poly
 from vosk import Model, KaldiRecognizer
-from rapidfuzz import fuzz
 
 from ai.brain import jarvis_brain
 
@@ -16,11 +19,16 @@ from ai.brain import jarvis_brain
 MODEL_PATH = "models/vosk-model-small-en-us-0.15"
 
 MIC_DEVICE = 1
-SAMPLE_RATE = 16000
+
+MIC_RATE = 48000
+VOSK_RATE = 16000
+
 CHANNELS = 1
+BLOCKSIZE = 4800
 
 WAKE_WORDS = [
     "jarvis",
+    "jarvis sir",
     "hey jarvis",
     "okay jarvis",
     "ok jarvis",
@@ -39,98 +47,225 @@ engine.setProperty("volume", 1.0)
 
 def speak(text):
 
-    print("\nJARVIS:", text)
+    print("\nJARVIS:", text, flush=True)
 
     try:
+
         engine.say(text)
         engine.runAndWait()
+
     except Exception as e:
-        print("TTS ERROR:", e)
+
+        print(
+            "TTS ERROR:",
+            e,
+            flush=True
+        )
 
 
 # ============================================================
 # VOSK
 # ============================================================
 
-print("Loading Vosk model...")
+print(
+    "Loading Vosk model...",
+    flush=True
+)
 
 model = Model(MODEL_PATH)
 
-print("Vosk loaded.")
+print(
+    "Vosk loaded.",
+    flush=True
+)
 
 
 # ============================================================
-# WAKE WORD
+# WAKE WORD GRAMMAR
+# ============================================================
+
+WAKE_GRAMMAR = json.dumps([
+    "jarvis",
+    "jarvis sir",
+    "hey jarvis",
+    "okay jarvis",
+    "ok jarvis",
+    "[unk]"
+])
+
+
+# ============================================================
+# AUDIO QUEUE
+# ============================================================
+
+audio_queue = queue.Queue(
+    maxsize=20
+)
+
+
+def audio_callback(
+    indata,
+    frames,
+    time_info,
+    status
+):
+
+    if status:
+
+        print(
+            "AUDIO:",
+            status,
+            flush=True
+        )
+
+    try:
+
+        audio_queue.put_nowait(
+            bytes(indata)
+        )
+
+    except queue.Full:
+
+        print(
+            "WARNING: Audio queue full",
+            flush=True
+        )
+
+
+# ============================================================
+# CONVERT 48kHz -> 16kHz
+# ============================================================
+
+def convert_audio(data):
+
+    audio_48k = np.frombuffer(
+        data,
+        dtype=np.int16
+    )
+
+    audio_16k = resample_poly(
+        audio_48k,
+        VOSK_RATE,
+        MIC_RATE
+    )
+
+    audio_16k = np.asarray(
+        audio_16k,
+        dtype=np.int16
+    )
+
+    return audio_16k.tobytes()
+
+
+# ============================================================
+# WAIT FOR WAKE WORD
 # ============================================================
 
 def wait_for_wake_word():
 
     recognizer = KaldiRecognizer(
         model,
-        SAMPLE_RATE
+        VOSK_RATE,
+        WAKE_GRAMMAR
     )
 
     print()
-    print("================================")
-    print("       JARVIS STANDBY")
-    print("================================")
+    print(
+        "================================",
+        flush=True
+    )
+    print(
+        "       JARVIS STANDBY",
+        flush=True
+    )
+    print(
+        "================================",
+        flush=True
+    )
     print()
-    print("Say: Jarvis")
+    print(
+        "Say: Jarvis",
+        flush=True
+    )
     print()
+
+    # Clear old audio
+    while not audio_queue.empty():
+
+        try:
+            audio_queue.get_nowait()
+
+        except queue.Empty:
+            break
 
     detected = False
 
-    def callback(indata, frames, time_info, status):
-
-        nonlocal detected
-
-        if detected:
-            return
-
-        if status:
-            print("Audio:", status)
-
-        data = bytes(indata)
-
-        if recognizer.AcceptWaveform(data):
-
-            result = json.loads(
-                recognizer.Result()
-            )
-
-            text = result.get(
-                "text",
-                ""
-            ).lower().strip()
-
-            if not text:
-                return
-
-            print("HEARD:", text)
-
-            for wake_word in WAKE_WORDS:
-
-                score = fuzz.partial_ratio(
-                    wake_word,
-                    text
-                )
-
-                if score >= 75:
-
-                    detected = True
-                    break
-
     with sd.RawInputStream(
-        samplerate=SAMPLE_RATE,
-        blocksize=8000,
+        samplerate=MIC_RATE,
+        blocksize=BLOCKSIZE,
         device=MIC_DEVICE,
         dtype="int16",
         channels=CHANNELS,
-        callback=callback
+        callback=audio_callback
     ):
 
         while not detected:
-            sd.sleep(100)
+
+            try:
+
+                data = audio_queue.get(
+                    timeout=0.5
+                )
+
+            except queue.Empty:
+
+                continue
+
+            audio_16k = convert_audio(
+                data
+            )
+
+            if recognizer.AcceptWaveform(
+                audio_16k
+            ):
+
+                result = json.loads(
+                    recognizer.Result()
+                )
+
+                text = result.get(
+                    "text",
+                    ""
+                ).lower().strip()
+
+                if not text:
+
+                    continue
+
+                print(
+                    "HEARD:",
+                    text,
+                    flush=True
+                )
+
+                if "jarvis" in text:
+
+                    detected = True
+
+                    print()
+                    print(
+                        "==============================",
+                        flush=True
+                    )
+                    print(
+                        "JARVIS WAKE WORD DETECTED!",
+                        flush=True
+                    )
+                    print(
+                        "==============================",
+                        flush=True
+                    )
+                    print()
 
     return True
 
@@ -142,26 +277,77 @@ def wait_for_wake_word():
 def listen_for_command():
 
     print()
-    print("🎤 Listening for your command...")
+    print(
+        "Listening for your command...",
+        flush=True
+    )
 
     recognizer = KaldiRecognizer(
         model,
-        SAMPLE_RATE
+        VOSK_RATE
     )
 
-    audio = sd.rec(
-        int(5 * SAMPLE_RATE),
-        samplerate=SAMPLE_RATE,
-        channels=CHANNELS,
+    command_queue = queue.Queue(
+        maxsize=20
+    )
+
+    command_done = False
+
+    def command_callback(
+        indata,
+        frames,
+        time_info,
+        status
+    ):
+
+        if status:
+
+            print(
+                "COMMAND AUDIO:",
+                status,
+                flush=True
+            )
+
+        try:
+
+            command_queue.put_nowait(
+                bytes(indata)
+            )
+
+        except queue.Full:
+
+            pass
+
+    start_time = time.time()
+
+    with sd.RawInputStream(
+        samplerate=MIC_RATE,
+        blocksize=BLOCKSIZE,
+        device=MIC_DEVICE,
         dtype="int16",
-        device=MIC_DEVICE
-    )
+        channels=CHANNELS,
+        callback=command_callback
+    ):
 
-    sd.wait()
+        while time.time() - start_time < 5:
 
-    recognizer.AcceptWaveform(
-        audio.tobytes()
-    )
+            try:
+
+                data = command_queue.get(
+                    timeout=0.5
+                )
+
+            except queue.Empty:
+
+                continue
+
+            audio_16k = convert_audio(
+                data
+            )
+
+            recognizer.AcceptWaveform(
+                audio_16k
+            )
 
     result = json.loads(
         recognizer.FinalResult()
@@ -176,15 +362,190 @@ def listen_for_command():
 
 
 # ============================================================
+# CONTINUOUS CONVERSATION MODE
+# ============================================================
+
+def conversation_mode():
+
+    print()
+    print(
+        "================================",
+        flush=True
+    )
+    print(
+        "    JARVIS CONVERSATION MODE",
+        flush=True
+    )
+    print(
+        "================================",
+        flush=True
+    )
+    print()
+    print(
+        "Continuous conversation active.",
+        flush=True
+    )
+    print(
+        "Say 'sleep' to return to standby.",
+        flush=True
+    )
+    print(
+        "Say 'shutdown' to stop JARVIS.",
+        flush=True
+    )
+    print()
+
+    speak(
+        "I'm listening, sir."
+    )
+
+    while True:
+
+        try:
+
+            command = listen_for_command()
+
+            if not command:
+
+                print(
+                    "JARVIS: I didn't hear anything.",
+                    flush=True
+                )
+
+                continue
+
+            print()
+            print(
+                "YOU:",
+                command,
+                flush=True
+            )
+
+            command_lower = (
+                command
+                .lower()
+                .strip()
+            )
+
+            # ------------------------------------------------
+            # STANDBY
+            # ------------------------------------------------
+
+            if command_lower in [
+                "sleep",
+                "sleep jarvis",
+                "go to sleep",
+                "stop listening",
+                "standby",
+                "go standby"
+            ]:
+
+                speak(
+                    "Going back to standby, sir."
+                )
+
+                return "standby"
+
+            # ------------------------------------------------
+            # SHUTDOWN
+            # ------------------------------------------------
+
+            if command_lower in [
+                "exit",
+                "quit",
+                "shutdown",
+                "goodbye",
+                "bye"
+            ]:
+
+                speak(
+                    "JARVIS shutting down, sir."
+                )
+
+                return "shutdown"
+
+            # ------------------------------------------------
+            # BRAIN
+            # ------------------------------------------------
+
+            print()
+            print(
+                "Thinking...",
+                flush=True
+            )
+
+            response = jarvis_brain(
+                command
+            )
+
+            # ------------------------------------------------
+            # RESPONSE
+            # ------------------------------------------------
+
+            if response:
+
+                speak(
+                    response
+                )
+
+            else:
+
+                speak(
+                    "I don't have a response for that, sir."
+                )
+
+            time.sleep(
+                0.3
+            )
+
+        except KeyboardInterrupt:
+
+            print()
+
+            speak(
+                "JARVIS shutting down, sir."
+            )
+
+            return "shutdown"
+
+        except Exception as e:
+
+            print()
+            print(
+                "CONVERSATION ERROR:",
+                e,
+                flush=True
+            )
+
+            speak(
+                "Sorry sir, something went wrong."
+            )
+
+            time.sleep(
+                0.5
+            )
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
 def main():
 
     print()
-    print("================================")
-    print("          JARVIS ONLINE")
-    print("================================")
+    print(
+        "================================",
+        flush=True
+    )
+    print(
+        "          JARVIS ONLINE",
+        flush=True
+    )
+    print(
+        "================================",
+        flush=True
+    )
+    print()
 
     speak(
         "JARVIS online. "
@@ -195,71 +556,33 @@ def main():
 
         try:
 
-            # -----------------------------------------------
-            # WAIT FOR "JARVIS"
-            # -----------------------------------------------
-
             wait_for_wake_word()
 
             print()
-            print("🔥 WAKE WORD DETECTED!")
+            print(
+                "WAKE WORD DETECTED!",
+                flush=True
+            )
 
-            speak("Yes sir?")
+            speak(
+                "Yes sir?"
+            )
 
-            # -----------------------------------------------
-            # LISTEN FOR COMMAND
-            # -----------------------------------------------
+            result = conversation_mode()
 
-            command = listen_for_command()
-
-            if not command:
-
-                speak(
-                    "Sorry sir, "
-                    "I didn't hear your command."
-                )
-
-                continue
-
-            print()
-            print("🗣️ YOU:", command)
-
-            # -----------------------------------------------
-            # EXIT
-            # -----------------------------------------------
-
-            if command.lower() in [
-                "exit",
-                "quit",
-                "shutdown",
-                "goodbye",
-                "stop"
-            ]:
-
-                speak(
-                    "JARVIS shutting down, sir."
-                )
+            if result == "shutdown":
 
                 break
 
-            # -----------------------------------------------
-            # BRAIN
-            # -----------------------------------------------
+            if result == "standby":
 
-            print()
-            print("🧠 Thinking...")
+                print()
+                print(
+                    "JARVIS returned to standby.",
+                    flush=True
+                )
 
-            response = jarvis_brain(
-                command
-            )
-
-            # -----------------------------------------------
-            # RESPONSE
-            # -----------------------------------------------
-
-            speak(response)
-
-            time.sleep(0.5)
+                continue
 
         except KeyboardInterrupt:
 
@@ -274,11 +597,19 @@ def main():
         except Exception as e:
 
             print()
-            print("ERROR:", e)
+            print(
+                "MAIN ERROR:",
+                e,
+                flush=True
+            )
 
             speak(
                 "Sorry sir, "
                 "I encountered an error."
+            )
+
+            time.sleep(
+                1
             )
 
 
@@ -287,4 +618,5 @@ def main():
 # ============================================================
 
 if __name__ == "__main__":
+
     main()
