@@ -13,55 +13,10 @@ OLLAMA_MODEL = "qwen3:1.7b"
 
 
 # ============================================================
-# CONVERSATION MEMORY
-# ============================================================
-
-MAX_HISTORY_MESSAGES = 10
-
-conversation_history = []
-
-
-def reset_memory():
-    """
-    Clear current JARVIS conversation memory.
-    """
-
-    global conversation_history
-
-    conversation_history = []
-
-    print(
-        "JARVIS memory cleared.",
-        flush=True
-    )
-
-
-def add_to_memory(role, content):
-    """
-    Add a message to conversation history.
-    """
-
-    conversation_history.append({
-        "role": role,
-        "content": content
-    })
-
-    # Keep memory small for Qwen 1.7B
-    if len(conversation_history) > MAX_HISTORY_MESSAGES:
-
-        del conversation_history[
-            :len(conversation_history) - MAX_HISTORY_MESSAGES
-        ]
-
-
-# ============================================================
 # OLLAMA BRAIN
 # ============================================================
 
-def ask_ollama(
-    message: str,
-    teacher_mode: bool = False
-) -> str:
+def ask_ollama(message: str, teacher_mode: bool = False) -> str:
 
     # ========================================================
     # TEACHER MODE
@@ -89,7 +44,6 @@ Teaching rules:
 11. Ask one small question at the end.
 12. If the student says they don't understand, explain it again more simply.
 13. Do not overload the student with too much information.
-14. Remember the current conversation context when answering follow-up questions.
 
 Classroom format:
 
@@ -127,34 +81,7 @@ Rules:
 5. Do not pretend you executed an action.
 6. Do not invent tools.
 7. Keep normal answers concise.
-8. Use previous conversation context when answering follow-up questions.
 """
-
-
-    # ========================================================
-    # ADD USER MESSAGE TO MEMORY
-    # ========================================================
-
-    add_to_memory(
-        "user",
-        message
-    )
-
-
-    # ========================================================
-    # BUILD OLLAMA MESSAGES
-    # ========================================================
-
-    messages = [
-        {
-            "role": "system",
-            "content": system_prompt
-        }
-    ]
-
-    messages.extend(
-        conversation_history
-    )
 
 
     # ========================================================
@@ -163,16 +90,23 @@ Rules:
 
     payload = {
         "model": OLLAMA_MODEL,
-        "messages": messages,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt
+            },
+            {
+                "role": "user",
+                "content": message
+            }
+        ],
         "stream": False
     }
 
 
     try:
 
-        data = json.dumps(
-            payload
-        ).encode("utf-8")
+        data = json.dumps(payload).encode("utf-8")
 
         request = urllib.request.Request(
             OLLAMA_URL,
@@ -202,25 +136,14 @@ Rules:
 
 
         if not answer:
-
-            # Remove failed user message
-            if conversation_history:
-
-                conversation_history.pop()
-
-            return (
-                "I couldn't generate a response, sir."
-            )
+            return "I couldn't generate a response, sir."
 
 
         # ====================================================
         # REMOVE QWEN THINKING
         # ====================================================
 
-        if (
-            "<think>" in answer
-            and "</think>" in answer
-        ):
+        if "<think>" in answer and "</think>" in answer:
 
             answer = answer.split(
                 "</think>",
@@ -228,25 +151,10 @@ Rules:
             )[1].strip()
 
 
-        # ====================================================
-        # ADD ASSISTANT RESPONSE TO MEMORY
-        # ====================================================
-
-        add_to_memory(
-            "assistant",
-            answer
-        )
-
-
         return answer
 
 
     except urllib.error.URLError:
-
-        # Remove user message if request failed
-        if conversation_history:
-
-            conversation_history.pop()
 
         return (
             "Ollama is not running, sir. "
@@ -256,10 +164,6 @@ Rules:
 
     except TimeoutError:
 
-        if conversation_history:
-
-            conversation_history.pop()
-
         return (
             "Ollama is taking too long to respond, sir. "
             "Please try again."
@@ -267,10 +171,6 @@ Rules:
 
 
     except Exception as e:
-
-        if conversation_history:
-
-            conversation_history.pop()
 
         return f"Ollama error: {e}"
 
@@ -293,26 +193,6 @@ def jarvis_brain(message: str) -> str:
 
 
     # ========================================================
-    # RESET MEMORY
-    # ========================================================
-
-    if lower in [
-        "forget everything",
-        "forget our conversation",
-        "clear memory",
-        "clear conversation",
-        "reset memory",
-        "reset conversation"
-    ]:
-
-        reset_memory()
-
-        return (
-            "Conversation memory cleared, sir."
-        )
-
-
-    # ========================================================
     # GREETINGS
     # ========================================================
 
@@ -325,9 +205,7 @@ def jarvis_brain(message: str) -> str:
         "hey jarvis"
     ]:
 
-        return (
-            "Hello sir. JARVIS is ready."
-        )
+        return "Hello sir. JARVIS is ready."
 
 
     # ========================================================
@@ -424,10 +302,6 @@ def jarvis_brain(message: str) -> str:
     )
 
 
-    # ========================================================
-    # TEACHER MODE REQUEST
-    # ========================================================
-
     if teacher_mode:
 
         return ask_ollama(
@@ -452,30 +326,13 @@ def jarvis_brain(message: str) -> str:
 
 if __name__ == "__main__":
 
-    print(
-        "================================"
-    )
-
-    print(
-        "       JARVIS BRAIN TEST"
-    )
-
-    print(
-        "================================"
-    )
+    print("================================")
+    print("       JARVIS BRAIN TEST")
+    print("================================")
 
     print()
-
-    print(
-        "Type 'exit' to stop."
-    )
-
-    print(
-        "Type 'clear memory' to reset memory."
-    )
-
+    print("Type 'exit' to stop.")
     print()
-
 
     while True:
 
