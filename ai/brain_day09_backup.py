@@ -2,7 +2,6 @@ import json
 import urllib.request
 import urllib.error
 from datetime import datetime
-from ai.memory import load_memory, save_memory
 
 
 # ============================================================
@@ -19,7 +18,7 @@ OLLAMA_MODEL = "qwen3:1.7b"
 
 MAX_HISTORY_MESSAGES = 10
 
-conversation_history = load_memory()
+conversation_history = []
 
 
 def reset_memory():
@@ -30,7 +29,6 @@ def reset_memory():
     global conversation_history
 
     conversation_history = []
-    save_memory(conversation_history)
 
     print(
         "JARVIS memory cleared.",
@@ -54,7 +52,6 @@ def add_to_memory(role, content):
         del conversation_history[
             :len(conversation_history) - MAX_HISTORY_MESSAGES
         ]
-    save_memory(conversation_history)
 
 
 # ============================================================
