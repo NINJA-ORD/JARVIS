@@ -2,7 +2,7 @@ import json
 import urllib.request
 import urllib.error
 from datetime import datetime
-from ai.memory import load_memory, save_memory, get_important_memories
+from ai.memory import load_memory, save_memory
 
 
 # ============================================================
@@ -159,15 +159,7 @@ Rules:
         conversation_history
     )
 
-    important_memories = get_important_memories()
 
-    if important_memories:
-        memory_text = "Important memories: " + str(important_memories)
-
-        messages.append({
-            "role": "system",
-            "content": memory_text
-        })
     # ========================================================
     # OLLAMA REQUEST
     # ========================================================

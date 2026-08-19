@@ -1,30 +1,42 @@
 [
     {
         "role": "user",
-        "content": "My name is Prithvi"
+        "content": "my"
     },
     {
         "role": "user",
-        "content": "remember"
+        "content": "one"
     },
     {
         "role": "user",
-        "content": "what is my name"
+        "content": "what my name"
+    },
+    {
+        "role": "user",
+        "content": "what part"
+    },
+    {
+        "role": "user",
+        "content": "what"
+    },
+    {
+        "role": "user",
+        "content": "what might be"
+    },
+    {
+        "role": "user",
+        "content": "my name"
     },
     {
         "role": "assistant",
-        "content": "Sir Prithvi, pleased to meet you! How can I assist you today?"
+        "content": "Sir Prithvi, your name is Prithvi. If you meant something else, please clarify!"
     },
     {
         "role": "user",
-        "content": "house"
-    },
-    {
-        "role": "user",
-        "content": "what is my name"
+        "content": "huh"
     },
     {
         "role": "assistant",
-        "content": "Sir Prithvi, your name is Prithvi. How can I assist you today?"
+        "content": "Sir, I'm sorry you're confused. Your name is Prithvi, and I'm here to assist you with anything else. Could you clarify what you meant?"
     }
 ]

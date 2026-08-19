@@ -116,21 +116,4 @@ def get_memory():
     Return all persistent memory.
     """
 
-    return load_memory() 
-def save_important_memory(key, value):
-    memory = load_memory()
-
-    memory.append({
-        "type": "important",
-        "key": key,
-        "value": value
-    })
-
-    save_memory(memory)
-def get_important_memories():
-    memory = load_memory()
-
-    return [
-        item for item in memory
-        if item.get("type") == "important"
-    ]
+    return load_memory()
