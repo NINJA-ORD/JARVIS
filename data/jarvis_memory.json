@@ -1,14 +1,6 @@
 [
     {
         "role": "user",
-        "content": "what"
-    },
-    {
-        "role": "user",
-        "content": "what might be"
-    },
-    {
-        "role": "user",
         "content": "my name"
     },
     {
@@ -38,5 +30,13 @@
     {
         "role": "user",
         "content": "huh"
+    },
+    {
+        "role": "user",
+        "content": "what is my name"
+    },
+    {
+        "role": "assistant",
+        "content": "Sir, your name is Prithvi as previously stated. If you wish to explore alternatives or clarify your intent, please let me know!"
     }
 ]

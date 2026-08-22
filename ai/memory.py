@@ -4,28 +4,24 @@ from pathlib import Path
 
 # ============================================================
 # JARVIS PERSISTENT MEMORY
-
-MAX_MEMORY = 100
 # ============================================================
 
-MEMORY_FILE = Path(__file__).resolve().parent.parent / "data" / "jarvis_memory.json"
+MAX_MEMORY = 100
+
+MEMORY_FILE = (
+    Path(__file__).resolve().parent.parent
+    / "data"
+    / "jarvis_memory.json"
+)
 
 
 def ensure_memory_file():
-    """
-    Create the data directory and memory file if they do not exist.
-    """
+    """Create the data directory and memory file if needed."""
 
     MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     if not MEMORY_FILE.exists():
-
-        with open(
-            MEMORY_FILE,
-            "w",
-            encoding="utf-8"
-        ) as file:
-
+        with open(MEMORY_FILE, "w", encoding="utf-8") as file:
             json.dump(
                 [],
                 file,
@@ -35,20 +31,12 @@ def ensure_memory_file():
 
 
 def load_memory():
-    """
-    Load persistent memory from disk.
-    """
+    """Load persistent memory from disk."""
 
     ensure_memory_file()
 
     try:
-
-        with open(
-            MEMORY_FILE,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
+        with open(MEMORY_FILE, "r", encoding="utf-8") as file:
             data = json.load(file)
 
             if isinstance(data, list):
@@ -56,27 +44,16 @@ def load_memory():
 
             return []
 
-    except (
-        json.JSONDecodeError,
-        OSError
-    ):
-
+    except (json.JSONDecodeError, OSError):
         return []
 
 
 def save_memory(memory):
-    """
-    Save persistent memory to disk.
-    """
+    """Save persistent memory to disk."""
 
     ensure_memory_file()
 
-    with open(
-        MEMORY_FILE,
-        "w",
-        encoding="utf-8"
-    ) as file:
-
+    with open(MEMORY_FILE, "w", encoding="utf-8") as file:
         json.dump(
             memory,
             file,
@@ -86,9 +63,13 @@ def save_memory(memory):
 
 
 def add_memory(role, content):
-    """
-    Add a conversation message to persistent memory.
-    """
+    """Add useful conversation message to persistent memory."""
+
+    content = content.strip()
+
+    # Ignore empty or extremely short speech-recognition results
+    if len(content) < 3:
+        return
 
     memory = load_memory()
 
@@ -104,20 +85,20 @@ def add_memory(role, content):
 
 
 def clear_memory():
-    """
-    Delete all persistent conversation memory.
-    """
+    """Delete all persistent conversation memory."""
 
     save_memory([])
 
 
 def get_memory():
-    """
-    Return all persistent memory.
-    """
+    """Return all persistent memory."""
 
-    return load_memory() 
+    return load_memory()
+
+
 def save_important_memory(key, value):
+    """Save an important piece of information."""
+
     memory = load_memory()
 
     memory.append({
@@ -127,10 +108,15 @@ def save_important_memory(key, value):
     })
 
     save_memory(memory)
+
+
 def get_important_memories():
+    """Return all important memories."""
+
     memory = load_memory()
 
     return [
-        item for item in memory
+        item
+        for item in memory
         if item.get("type") == "important"
     ]
