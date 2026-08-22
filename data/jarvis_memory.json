@@ -1,22 +1,6 @@
 [
     {
         "role": "user",
-        "content": "my"
-    },
-    {
-        "role": "user",
-        "content": "one"
-    },
-    {
-        "role": "user",
-        "content": "what my name"
-    },
-    {
-        "role": "user",
-        "content": "what part"
-    },
-    {
-        "role": "user",
         "content": "what"
     },
     {
@@ -38,5 +22,21 @@
     {
         "role": "assistant",
         "content": "Sir, I'm sorry you're confused. Your name is Prithvi, and I'm here to assist you with anything else. Could you clarify what you meant?"
+    },
+    {
+        "role": "user",
+        "content": "what is my new"
+    },
+    {
+        "role": "user",
+        "content": "what is my name"
+    },
+    {
+        "role": "assistant",
+        "content": "Sir, your name is Prithvi as previously stated. If you're referring to a new name or wish to explore alternatives, please clarify your intent!"
+    },
+    {
+        "role": "user",
+        "content": "huh"
     }
 ]
