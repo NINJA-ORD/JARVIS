@@ -2,7 +2,13 @@ import json
 import urllib.request
 import urllib.error
 from datetime import datetime
-from ai.memory import load_memory, save_memory, get_important_memories
+
+from ai.memory import (
+    load_memory,
+    save_memory,
+    get_important_memories,
+    clear_all_memory
+)
 
 
 # ============================================================
@@ -24,7 +30,8 @@ conversation_history = load_memory()
 
 def reset_memory():
     """
-    Clear current JARVIS conversation memory.
+    Clear only current conversation memory.
+    Important memories are preserved.
     """
 
     global conversation_history
@@ -33,7 +40,23 @@ def reset_memory():
     save_memory(conversation_history)
 
     print(
-        "JARVIS memory cleared.",
+        "JARVIS conversation memory cleared.",
+        flush=True
+    )
+
+
+def forget_everything():
+    """
+    Clear conversation memory and important memories.
+    """
+
+    global conversation_history
+
+    conversation_history = []
+    clear_all_memory()
+
+    print(
+        "JARVIS all memory cleared.",
         flush=True
     )
 
@@ -43,6 +66,14 @@ def add_to_memory(role, content):
     Add a message to conversation history.
     """
 
+    global conversation_history
+
+    content = content.strip()
+
+    # Ignore empty messages
+    if not content:
+        return
+
     conversation_history.append({
         "role": role,
         "content": content
@@ -51,10 +82,26 @@ def add_to_memory(role, content):
     # Keep memory small for Qwen 1.7B
     if len(conversation_history) > MAX_HISTORY_MESSAGES:
 
-        del conversation_history[
-            :len(conversation_history) - MAX_HISTORY_MESSAGES
+        conversation_history = conversation_history[
+            -MAX_HISTORY_MESSAGES:
         ]
+
+    # Save conversation while preserving
+    # important memories
     save_memory(conversation_history)
+
+
+def remove_last_memory():
+    """
+    Remove the latest conversation message
+    and save the updated memory.
+    """
+
+    global conversation_history
+
+    if conversation_history:
+        conversation_history.pop()
+        save_memory(conversation_history)
 
 
 # ============================================================
@@ -155,19 +202,42 @@ Rules:
         }
     ]
 
+    # Only normal conversation is added here
     messages.extend(
         conversation_history
     )
 
+
+    # ========================================================
+    # IMPORTANT MEMORIES
+    # ========================================================
+
     important_memories = get_important_memories()
 
     if important_memories:
-        memory_text = "Important memories: " + str(important_memories)
+
+        memory_lines = []
+
+        for item in important_memories:
+
+            key = item.get("key", "")
+            value = item.get("value", "")
+
+            memory_lines.append(
+                f"{key}: {value}"
+            )
+
+        memory_text = (
+            "Important memories about the user:\n"
+            + "\n".join(memory_lines)
+        )
 
         messages.append({
             "role": "system",
             "content": memory_text
         })
+
+
     # ========================================================
     # OLLAMA REQUEST
     # ========================================================
@@ -185,6 +255,7 @@ Rules:
             payload
         ).encode("utf-8")
 
+
         request = urllib.request.Request(
             OLLAMA_URL,
             data=data,
@@ -193,6 +264,7 @@ Rules:
             },
             method="POST"
         )
+
 
         with urllib.request.urlopen(
             request,
@@ -212,12 +284,13 @@ Rules:
         )
 
 
+        # ====================================================
+        # EMPTY RESPONSE
+        # ====================================================
+
         if not answer:
 
-            # Remove failed user message
-            if conversation_history:
-
-                conversation_history.pop()
+            remove_last_memory()
 
             return (
                 "I couldn't generate a response, sir."
@@ -252,12 +325,13 @@ Rules:
         return answer
 
 
+    # ========================================================
+    # OLLAMA CONNECTION ERROR
+    # ========================================================
+
     except urllib.error.URLError:
 
-        # Remove user message if request failed
-        if conversation_history:
-
-            conversation_history.pop()
+        remove_last_memory()
 
         return (
             "Ollama is not running, sir. "
@@ -265,11 +339,13 @@ Rules:
         )
 
 
+    # ========================================================
+    # TIMEOUT
+    # ========================================================
+
     except TimeoutError:
 
-        if conversation_history:
-
-            conversation_history.pop()
+        remove_last_memory()
 
         return (
             "Ollama is taking too long to respond, sir. "
@@ -277,11 +353,13 @@ Rules:
         )
 
 
+    # ========================================================
+    # OTHER ERROR
+    # ========================================================
+
     except Exception as e:
 
-        if conversation_history:
-
-            conversation_history.pop()
+        remove_last_memory()
 
         return f"Ollama error: {e}"
 
@@ -304,11 +382,28 @@ def jarvis_brain(message: str) -> str:
 
 
     # ========================================================
-    # RESET MEMORY
+    # FORGET EVERYTHING
     # ========================================================
 
     if lower in [
         "forget everything",
+        "forget all memory",
+        "delete all memory",
+        "clear all memory"
+    ]:
+
+        forget_everything()
+
+        return (
+            "All JARVIS memory has been cleared, sir."
+        )
+
+
+    # ========================================================
+    # RESET CONVERSATION MEMORY
+    # ========================================================
+
+    if lower in [
         "forget our conversation",
         "clear memory",
         "clear conversation",
@@ -386,7 +481,7 @@ def jarvis_brain(message: str) -> str:
 
 
     # ========================================================
-    # TEACHER MODE
+    # TEACHER MODE KEYWORDS
     # ========================================================
 
     teacher_keywords = [
@@ -482,7 +577,11 @@ if __name__ == "__main__":
     )
 
     print(
-        "Type 'clear memory' to reset memory."
+        "Type 'clear memory' to reset conversation memory."
+    )
+
+    print(
+        "Type 'forget everything' to delete all memory."
     )
 
     print()
