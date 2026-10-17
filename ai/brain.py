@@ -227,12 +227,16 @@ Rules:
                 f"{key}: {value}"
             )
 
+       
         memory_text = (
-            "Important memories about the user:\n"
+            "IMPORTANT USER FACTS — these are the latest saved values.\n"
+            "When asked about these facts, use these values as the "
+            "source of truth. They override conflicting older "
+            "conversation messages. Do not use outdated values.\n"
             + "\n".join(memory_lines)
         )
 
-        messages.append({
+        messages.insert(1, {
             "role": "system",
             "content": memory_text
         })

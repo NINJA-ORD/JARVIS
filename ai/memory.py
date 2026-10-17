@@ -216,6 +216,112 @@ def get_important_memories():
 
 
 # ============================================================
+# SMART MEMORY DETECTION
+# ============================================================
+
+def is_important_memory(content):
+    """
+    Detect whether a message contains information
+    that may be useful for long-term memory.
+    """
+
+    content = str(content).lower().strip()
+
+    if not content:
+        return False
+
+    important_patterns = [
+
+        # ----------------------------------------------------
+        # NAME / IDENTITY
+        # ----------------------------------------------------
+
+        "my name is",
+        "mera naam",
+        "i am",
+        "i'm",
+
+        # ----------------------------------------------------
+        # FAVORITES / PREFERENCES
+        # ----------------------------------------------------
+
+        "my favorite",
+        "my favourite",
+        "mera favorite",
+        "mera favourite",
+        "i like",
+        "i love",
+        "mujhe pasand",
+        "mujhe acha lagta",
+        "mujhe achha lagta",
+
+        # ----------------------------------------------------
+        # REMEMBER REQUESTS
+        # ----------------------------------------------------
+
+        "remember that",
+        "remember this",
+        "yaad rakh",
+        "yaad rakhna",
+        "mat bhoolna",
+        "don't forget",
+        "dont forget",
+
+        # ----------------------------------------------------
+        # GOALS
+        # ----------------------------------------------------
+
+        "my goal is",
+        "mera goal",
+        "my goal",
+        "i want to become",
+        "main banna chahta",
+        "mai banna chahta",
+
+        # ----------------------------------------------------
+        # LEARNING
+        # ----------------------------------------------------
+
+        "i am learning",
+        "i'm learning",
+        "main seekh raha",
+        "mai seekh raha",
+        "i study",
+        "main padh raha",
+        "mai padh raha",
+
+        # ----------------------------------------------------
+        # PROJECTS
+        # ----------------------------------------------------
+
+        "my project",
+        "mera project",
+
+        # ----------------------------------------------------
+        # WORK
+        # ----------------------------------------------------
+
+        "my work",
+        "mera kaam",
+
+        # ----------------------------------------------------
+        # LOCATION / GENERAL PERSONAL INFO
+        # ----------------------------------------------------
+
+        "i live in",
+        "main rehta hoon",
+        "main rehta hu",
+        "mai rehta hoon",
+        "mai rehta hu"
+    ]
+
+    return any(
+        pattern in content
+        for pattern in important_patterns
+    )
+
+
+# ============================================================
 # CLEAR EVERYTHING
 # ============================================================
 
